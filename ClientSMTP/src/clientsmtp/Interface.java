@@ -6,8 +6,11 @@
 package clientsmtp;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -30,11 +33,32 @@ public class Interface extends javax.swing.JFrame {
         this.skt = skt;
         this.in = in;
         this.out = out;
+        this.gestionEvenement("LIST");
     }
     
     private void gestionEvenement(String evenement)
     {
-        
+        if(evenement.equals("LIST"))
+        {
+            envoiMessage(evenement);
+            recoitMessage();
+        }
+        else if (evenement.contains("RETR"))
+        {
+            
+        }
+        else if (evenement.contains("DEL"))
+        {
+            
+        }
+        else if(evenement.equals("QUIT"))
+        {
+            
+        }
+        else
+        {
+            System.out.println("Commande inconnue");
+        }
     }
 
     /**
@@ -50,8 +74,10 @@ public class Interface extends javax.swing.JFrame {
         jScrollPane1 = new javax.swing.JScrollPane();
         table_mails = new javax.swing.JTable();
         lb_user = new javax.swing.JLabel();
+        btn_refresh = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setResizable(false);
 
         btn_deco.setText("Déconnexion");
 
@@ -67,6 +93,8 @@ public class Interface extends javax.swing.JFrame {
 
         lb_user.setText("Bienvenue, x !");
 
+        btn_refresh.setText("<html><font face=\"FontAwesome\"></font></html>");
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -76,7 +104,9 @@ public class Interface extends javax.swing.JFrame {
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(lb_user, javax.swing.GroupLayout.PREFERRED_SIZE, 416, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 439, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 395, Short.MAX_VALUE)
+                        .addComponent(btn_refresh, javax.swing.GroupLayout.PREFERRED_SIZE, 34, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(btn_deco))
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(jScrollPane1)
@@ -87,7 +117,8 @@ public class Interface extends javax.swing.JFrame {
             .addGroup(layout.createSequentialGroup()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(btn_deco)
-                    .addComponent(lb_user))
+                    .addComponent(lb_user)
+                    .addComponent(btn_refresh, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 327, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(0, 36, Short.MAX_VALUE))
@@ -99,8 +130,27 @@ public class Interface extends javax.swing.JFrame {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btn_deco;
+    private javax.swing.JButton btn_refresh;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JLabel lb_user;
     private javax.swing.JTable table_mails;
     // End of variables declaration//GEN-END:variables
+
+    private void envoiMessage(String message)
+    {
+        System.out.println("-> "+message);
+        out.write(message);
+    }
+    
+    private String recoitMessage()
+    {
+        String result = "";
+        try {
+            result = in.readLine();
+        } catch (IOException ex) {
+            Logger.getLogger(Connexion.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        System.out.println("<- "+result);
+        return result;
+    }
 }
