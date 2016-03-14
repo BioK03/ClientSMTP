@@ -170,8 +170,8 @@ public class Connexion extends javax.swing.JFrame {
         connexion();
         String pass = new String(tf_pass.getPassword());
         
-        envoiMessage("ok");
-        System.out.println(recoitMessage());
+        //envoiMessage("ok");
+        recoitMessage();
         
         envoiMessage("APOP "+tf_user.getText()+" "+getPassword());
         String result = recoitMessage();
@@ -192,8 +192,8 @@ public class Connexion extends javax.swing.JFrame {
         connexion();
         String pass = new String(tf_pass.getPassword());
         
-        envoiMessage("ok");
-        System.out.println(recoitMessage());
+        //envoiMessage("ok");
+        recoitMessage();
         
         envoiMessage("USER "+tf_user.getText());
         String result = recoitMessage();
@@ -291,7 +291,7 @@ public class Connexion extends javax.swing.JFrame {
     
     private void envoiMessage(String message)
     {
-        System.out.println(message+" ->");
+        System.out.println(message + " ->" + "\n");
         out.write(message);
     }
     
@@ -303,7 +303,7 @@ public class Connexion extends javax.swing.JFrame {
         } catch (IOException ex) {
             Logger.getLogger(Connexion.class.getName()).log(Level.SEVERE, null, ex);
         }
-        System.out.println("<- "+result);
+        System.out.println("<- " + result);
         return result;
     }
     
