@@ -6,15 +6,16 @@
 package clientsmtp;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.math.BigInteger;
 import java.net.Socket;
 import java.nio.charset.Charset;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
@@ -38,6 +39,7 @@ public class Connexion extends javax.swing.JFrame {
      */
     public Connexion() {
         initComponents();
+        loadConfiguration();
     }
 
     /**
@@ -169,8 +171,9 @@ public class Connexion extends javax.swing.JFrame {
     private void btn_apopActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btn_apopActionPerformed
         connexion();
         String pass = new String(tf_pass.getPassword());
+        saveConfiguration();
         
-        envoiMessage("ok");
+        //envoiMessage("ok");
         System.out.println(recoitMessage());
         
         envoiMessage("APOP "+tf_user.getText()+" "+getPassword());
@@ -179,7 +182,6 @@ public class Connexion extends javax.swing.JFrame {
         System.out.println(result);
         if(result.contains("OK"))
         {
-            saveConfiguration();
             new Interface(skt, in, out).setVisible(true);
         }
         else
@@ -191,8 +193,9 @@ public class Connexion extends javax.swing.JFrame {
     private void btn_userpassActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btn_userpassActionPerformed
         connexion();
         String pass = new String(tf_pass.getPassword());
+        saveConfiguration();
         
-        envoiMessage("ok");
+        //envoiMessage("ok");
         System.out.println(recoitMessage());
         
         envoiMessage("USER "+tf_user.getText());
@@ -207,7 +210,6 @@ public class Connexion extends javax.swing.JFrame {
             System.out.println(result);
             if(result.contains("OK"))
             {
-                saveConfiguration();
                 new Interface(skt, in, out).setVisible(true);
             }
             else
@@ -263,6 +265,7 @@ public class Connexion extends javax.swing.JFrame {
                 result = hashtext;
             } catch (NoSuchAlgorithmException ex) {
                 Logger.getLogger(Connexion.class.getName()).log(Level.SEVERE, null, ex);
+                JOptionPane.showMessageDialog(null,"Le cryptage a retourné une erreur");
             }
         }
         else
@@ -286,37 +289,57 @@ public class Connexion extends javax.swing.JFrame {
             out = new PrintWriter(skt.getOutputStream(), true);
         } catch (IOException ex) {
             Logger.getLogger(Connexion.class.getName()).log(Level.SEVERE, null, ex);
+            JOptionPane.showMessageDialog(null,"Connexion impossible");
         } 
     }
     
     private void envoiMessage(String message)
     {
         System.out.println(message+" ->");
-        out.write(message);
+        out.write(message+'\n');
     }
     
     private String recoitMessage()
     {
         String result = "";
         try {
-            result = in.readLine();
+            char c = (char) in.read();
+            while(c != '\n')
+            {
+                result += c;
+                c = (char)in.read();  
+            }
+            System.out.println("<- "+result);
         } catch (IOException ex) {
             Logger.getLogger(Connexion.class.getName()).log(Level.SEVERE, null, ex);
         }
-        System.out.println("<- "+result);
         return result;
     }
     
     private void loadConfiguration()
     {
         Charset charset = Charset.forName("UTF-8");
-        try (BufferedReader reader = Files.newBufferedReader(Paths.get("C:/smtpconfig.txt"), charset)) {
+        try (BufferedReader reader = Files.newBufferedReader(FileSystems.getDefault().getPath(System.getProperty("user.dir")+"/smtpconfig.txt"), charset)) {
             String line = null;
+            int i=0;
             while ((line = reader.readLine()) != null) {
-                System.out.println(line);
+                switch(i)
+                {
+                    case 0:
+                        tf_ipserv.setText(line);
+                        break;
+                    case 1:
+                        tf_user.setText(line);
+                        break;
+                    case 2:
+                        tf_port.setText(line);
+                        break;
+                }                
+                i++;
             }
+            System.out.println("Configuration chargée !");
         } catch (IOException x) {
-            System.err.format("IOException: %s%n", x);
+            JOptionPane.showMessageDialog(null,"La configuration n'a pas pu être chargée. Le fichier n'existe peut-être pas encore.");
         }
     }
     
@@ -325,10 +348,16 @@ public class Connexion extends javax.swing.JFrame {
         if(cb_save.isSelected())
         {
             try {
+                if(!new File(FileSystems.getDefault().getPath(System.getProperty("user.dir")+"/smtpconfig.txt").toString()).exists())
+                {
+                    Files.createFile(FileSystems.getDefault().getPath(System.getProperty("user.dir")+"/smtpconfig.txt"));
+                }
+                
                 List<String> lines = Arrays.asList(tf_ipserv.getText(), tf_user.getText(), tf_port.getText());
-                Path file = Paths.get("C:/smtpconfig.txt");
+                Path file = FileSystems.getDefault().getPath(System.getProperty("user.dir")+"/smtpconfig.txt");
                 Files.write(file, lines, Charset.forName("UTF-8"));
             } catch (IOException ex) {
+                JOptionPane.showMessageDialog(null,"Le fichier de sauvegarde n'a pas pu être atteint (problème de droits)");
                 Logger.getLogger(Connexion.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
