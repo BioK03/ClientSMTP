@@ -12,6 +12,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.math.BigInteger;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.nio.charset.Charset;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -33,12 +34,15 @@ public class Connexion extends javax.swing.JFrame {
     private BufferedReader in;
     private PrintWriter out;
     private int port;
+    private String salt = "";
     
     /**
      * Creates new form Connexion
      */
     public Connexion() {
         initComponents();
+        getMd5Salt("adsazdf <cze>");
+        System.out.println(salt);
         loadConfiguration();
     }
 
@@ -174,7 +178,7 @@ public class Connexion extends javax.swing.JFrame {
         saveConfiguration();
         
         //envoiMessage("ok");
-        System.out.println(recoitMessage());
+        getMd5Salt(recoitMessage());
         
         envoiMessage("APOP "+tf_user.getText()+" "+getPassword());
         String result = recoitMessage();
@@ -182,7 +186,7 @@ public class Connexion extends javax.swing.JFrame {
         System.out.println(result);
         if(result.contains("OK"))
         {
-            new Interface(skt, in, out).setVisible(true);
+            new Interface(skt, in, out, Integer.parseInt(result.split(" ")[1]), tf_user.getText()).setVisible(true);
         }
         else
         {
@@ -196,7 +200,7 @@ public class Connexion extends javax.swing.JFrame {
         saveConfiguration();
         
         //envoiMessage("ok");
-        System.out.println(recoitMessage());
+        getMd5Salt(recoitMessage());
         
         envoiMessage("USER "+tf_user.getText());
         String result = recoitMessage();
@@ -210,7 +214,7 @@ public class Connexion extends javax.swing.JFrame {
             System.out.println(result);
             if(result.contains("OK"))
             {
-                new Interface(skt, in, out).setVisible(true);
+                new Interface(skt, in, out, Integer.parseInt(result.split("")[1]), tf_user.getText()).setVisible(true);
             }
             else
             {
@@ -245,12 +249,18 @@ public class Connexion extends javax.swing.JFrame {
         return(!tf_ipserv.getText().trim().equals("") && !tf_user.getText().trim().equals("") && !pass.equals(""));
     }
     
+    private void getMd5Salt(String msg)
+    {
+        salt = msg.subSequence(msg.lastIndexOf("<")+1, msg.lastIndexOf(">")).toString();
+    }
+    
     private String getPassword()
     {
         String result = "";
         String pass = new String(tf_pass.getPassword());
         if(cb_md5.isSelected())
         {
+            pass = salt+pass;
             String hashtext = "";
             try {
                 MessageDigest m = MessageDigest.getInstance("MD5");
@@ -285,18 +295,21 @@ public class Connexion extends javax.swing.JFrame {
         try {
             port = Integer.parseInt(tf_port.getText());
             skt = new Socket(tf_ipserv.getText(), port);
+            skt.setSoTimeout(5000);
             in = new BufferedReader(new InputStreamReader(skt.getInputStream()));
             out = new PrintWriter(skt.getOutputStream(), true);
         } catch (IOException ex) {
             Logger.getLogger(Connexion.class.getName()).log(Level.SEVERE, null, ex);
             JOptionPane.showMessageDialog(null,"Connexion impossible");
-        } 
+        }
     }
     
     private void envoiMessage(String message)
     {
         System.out.println(message+" ->");
-        out.write(message+'\n');
+        out.write(message+"\r\n");
+        out.flush();
+        
     }
     
     private String recoitMessage()
@@ -309,10 +322,13 @@ public class Connexion extends javax.swing.JFrame {
                 result += c;
                 c = (char)in.read();  
             }
-            System.out.println("<- "+result);
+        } catch(SocketTimeoutException ex) {
+            Logger.getLogger(Connexion.class.getName()).log(Level.SEVERE, null, ex);
+            
         } catch (IOException ex) {
             Logger.getLogger(Connexion.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        } 
+        System.out.println("<- " + result);
         return result;
     }
     

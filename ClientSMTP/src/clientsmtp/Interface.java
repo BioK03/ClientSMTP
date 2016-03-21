@@ -6,11 +6,25 @@
 package clientsmtp;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.nio.charset.Charset;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.JOptionPane;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+import javax.swing.table.DefaultTableModel;
 
 /**
  *
@@ -21,19 +35,62 @@ public class Interface extends javax.swing.JFrame {
     private Socket skt;
     private BufferedReader in;
     private PrintWriter out;
+    private String utilisateur;
+    private HashMap<Integer, String> messages;
+    
+    private int lastMessageSelected = 0;
     
     /**
      * Creates new form Interface
      * @param skt
      * @param in
      * @param out
+     * @param nbMessages
+     * @param utilisateur
      */
-    public Interface(Socket skt, BufferedReader in, PrintWriter out) {
+    public Interface(Socket skt, BufferedReader in, PrintWriter out, int nbMessages, String utilisateur) {
         initComponents();
+        this.messages = new HashMap();
         this.skt = skt;
         this.in = in;
         this.out = out;
-        this.gestionEvenement("LIST");
+        lb_user.setText("Bienvenue, "+utilisateur+"!");
+        this.utilisateur = utilisateur;
+        //this.gestionEvenement("LIST");
+        creationLignesMessages(nbMessages);
+        
+        table_mails.getSelectionModel().addListSelectionListener(new ListSelectionListener(){
+            @Override
+            public void valueChanged(ListSelectionEvent event) {
+                lastMessageSelected = Integer.parseInt(table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString());
+                if(table_mails.getSelectedColumn()<3)
+                {
+                    if(messages.containsKey(Integer.parseInt(table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString())))
+                    {
+                        System.out.println("Message "+Integer.parseInt(table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString())+" a été chargé depuis le cache");
+                        table_mails.setValueAt(messages.get(Integer.parseInt(table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString())).split(" ")[1], lastMessageSelected-1, 2);
+                        String line = messages.get(Integer.parseInt(table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString()));
+                        table_mails.setValueAt(
+                                line.substring(line.indexOf(" ")+1).substring(line.indexOf(" ")+1),
+                                lastMessageSelected-1, 1);
+                    }
+                    else
+                    {
+                        gestionEvenement("RETR "+table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString());
+                    }
+                    
+                }
+                else
+                {
+                    if(JOptionPane.showConfirmDialog(null, "Etes-vous sur de vouloir supprimer ce message ?", "Confirmation", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION)
+                    {
+                        gestionEvenement("DEL "+table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString());
+                    }
+                }
+                System.out.println("message selected : "+lastMessageSelected);
+            }
+        });
+        loadFichierCache();
     }
     
     private void gestionEvenement(String evenement)
@@ -45,7 +102,13 @@ public class Interface extends javax.swing.JFrame {
         }
         else if (evenement.contains("RETR"))
         {
-            
+            envoiMessage(evenement);
+            String result = "";
+            String mess1 = recoitMessage();
+            String mess2 = recoitMessage();
+            table_mails.setValueAt(mess1.substring(3), lastMessageSelected-1, 2);
+            table_mails.setValueAt(mess2, lastMessageSelected-1, 1);
+            creerFichierCache(mess1.split(" ")[0]+" "+mess1.split(" ")[1]+" "+mess2);
         }
         else if (evenement.contains("DEL"))
         {
@@ -53,7 +116,8 @@ public class Interface extends javax.swing.JFrame {
         }
         else if(evenement.equals("QUIT"))
         {
-            
+            envoiMessage(evenement);
+            System.exit(0);
         }
         else
         {
@@ -74,26 +138,45 @@ public class Interface extends javax.swing.JFrame {
         jScrollPane1 = new javax.swing.JScrollPane();
         table_mails = new javax.swing.JTable();
         lb_user = new javax.swing.JLabel();
-        btn_refresh = new javax.swing.JButton();
+        btn_clearCache = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setResizable(false);
 
         btn_deco.setText("Déconnexion");
+        btn_deco.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btn_decoActionPerformed(evt);
+            }
+        });
 
         table_mails.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
 
             },
             new String [] {
-                "Objet", "From", "Date"
+                "Numéro", "Contenu", "Taille", ""
             }
-        ));
+        ) {
+            boolean[] canEdit = new boolean [] {
+                false, false, false, false
+            };
+
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return canEdit [columnIndex];
+            }
+        });
+        table_mails.setRowSelectionAllowed(false);
         jScrollPane1.setViewportView(table_mails);
 
         lb_user.setText("Bienvenue, x !");
 
-        btn_refresh.setText("<html><font face=\"FontAwesome\"></font></html>");
+        btn_clearCache.setText("Nettoyer le cache");
+        btn_clearCache.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btn_clearCacheActionPerformed(evt);
+            }
+        });
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
@@ -104,9 +187,9 @@ public class Interface extends javax.swing.JFrame {
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(lb_user, javax.swing.GroupLayout.PREFERRED_SIZE, 416, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 395, Short.MAX_VALUE)
-                        .addComponent(btn_refresh, javax.swing.GroupLayout.PREFERRED_SIZE, 34, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 316, Short.MAX_VALUE)
+                        .addComponent(btn_clearCache)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(btn_deco))
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(jScrollPane1)
@@ -118,7 +201,7 @@ public class Interface extends javax.swing.JFrame {
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(btn_deco)
                     .addComponent(lb_user)
-                    .addComponent(btn_refresh, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addComponent(btn_clearCache))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 327, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(0, 36, Short.MAX_VALUE))
@@ -127,10 +210,18 @@ public class Interface extends javax.swing.JFrame {
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
+    private void btn_decoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btn_decoActionPerformed
+        gestionEvenement("QUIT");
+    }//GEN-LAST:event_btn_decoActionPerformed
+
+    private void btn_clearCacheActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btn_clearCacheActionPerformed
+        supprimerFichierCache();
+    }//GEN-LAST:event_btn_clearCacheActionPerformed
+
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton btn_clearCache;
     private javax.swing.JButton btn_deco;
-    private javax.swing.JButton btn_refresh;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JLabel lb_user;
     private javax.swing.JTable table_mails;
@@ -138,19 +229,85 @@ public class Interface extends javax.swing.JFrame {
 
     private void envoiMessage(String message)
     {
-        System.out.println("-> "+message);
-        out.write(message);
+        System.out.println(message+" ->");
+        out.write(message+"\r\n");
+        out.flush();
     }
     
     private String recoitMessage()
     {
         String result = "";
         try {
-            result = in.readLine();
+            char c = (char) in.read();
+            while(c != '\n')
+            {
+                result += c;
+                c = (char)in.read();  
+            }
+        } catch(SocketTimeoutException ex) {
+            Logger.getLogger(Connexion.class.getName()).log(Level.SEVERE, null, ex);
+            
         } catch (IOException ex) {
             Logger.getLogger(Connexion.class.getName()).log(Level.SEVERE, null, ex);
         }
-        System.out.println("<- "+result);
+        System.out.println("<- " + result);
         return result;
     }
+    
+    private void creationLignesMessages(int nbMessages)
+    {
+        for(int i=1; i<=nbMessages; i++)
+        {
+            DefaultTableModel model = (DefaultTableModel) table_mails.getModel();
+            model.addRow(new Object[]{i, "Cliquez pour voir le message", "", "<html><font face='FontAwesome'></font></html>"});
+        }
+    }
+    
+    private void creerFichierCache(String message)
+    {
+        try {
+            if(!new File(FileSystems.getDefault().getPath(System.getProperty("user.dir")+"/"+utilisateur+".txt").toString()).exists())
+            {
+                Files.createFile(FileSystems.getDefault().getPath(System.getProperty("user.dir")+"/"+utilisateur+".txt"));
+            }
+
+            List<String> lines = Arrays.asList(message);
+            Path file = FileSystems.getDefault().getPath(System.getProperty("user.dir")+"/"+utilisateur+".txt");
+            Files.write(file, lines, Charset.forName("UTF-8"));
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(null,"Le fichier d'un utilisateur n'a pas pu être atteint (problème de droits)");
+            Logger.getLogger(Connexion.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+    
+    private void supprimerFichierCache()
+    {
+        if(new File(FileSystems.getDefault().getPath(System.getProperty("user.dir")+"/"+utilisateur+".txt").toString()).exists())
+        {
+            try {
+                Files.delete(FileSystems.getDefault().getPath(System.getProperty("user.dir")+"/"+utilisateur+".txt"));
+            } catch (IOException ex) {
+                Logger.getLogger(Interface.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            messages.clear();
+        }
+    }
+    
+    private void loadFichierCache()
+    {
+        if(new File(FileSystems.getDefault().getPath(System.getProperty("user.dir")+"/"+utilisateur+".txt").toString()).exists())
+        {
+            Charset charset = Charset.forName("UTF-8");
+            try (BufferedReader reader = Files.newBufferedReader(FileSystems.getDefault().getPath(System.getProperty("user.dir")+"/"+utilisateur+".txt"), charset)) {
+                String line = null;
+                while ((line = reader.readLine()) != null) {
+                    messages.put(Integer.parseInt(line.split(" ")[0]), line);
+                }
+                System.out.println("Configuration chargée !");
+            } catch (IOException x) {
+                JOptionPane.showMessageDialog(null,"La configuration n'a pas pu être chargée. Le fichier n'existe peut-être pas encore.");
+            }
+        }
+    }
+    
 }
