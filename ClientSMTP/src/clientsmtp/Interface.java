@@ -83,7 +83,7 @@ public class Interface extends javax.swing.JFrame {
                 {
                     if(JOptionPane.showConfirmDialog(null, "Etes-vous sur de vouloir supprimer ce message ?", "Confirmation", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION)
                     {
-                        gestionEvenement("DEL "+table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString());
+                        gestionEvenement("DELE "+table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString());
                     }
                 }
                 System.out.println("message selected : "+lastMessageSelected);
@@ -105,11 +105,11 @@ public class Interface extends javax.swing.JFrame {
             String mess1 = recoitMessageMail();
             table_mails.setValueAt(mess1, lastMessageSelected-1, 2);
             table_mails.setValueAt(mess1, lastMessageSelected-1, 1);
-            creerFichierCache(evenement
-                    +" "+mess1
-                    +" "+mess1);
+            creerFichierCache(evenement.split(" ")[1]
+                    +" "+mess1.split(" ")[1]
+                    +" "+mess1.substring(mess1.indexOf("\\n")));
         }
-        else if (evenement.contains("DEL"))
+        else if (evenement.contains("DELE"))
         {
             envoiMessage(evenement);
         }
@@ -259,10 +259,10 @@ public class Interface extends javax.swing.JFrame {
         String result = "";
         try {
             char c = (char) in.read();
-            while(result.length()<3 || ( result.charAt(result.length()-1) != '\n' && result.charAt(result.length()-2) != '\r' && result.charAt(result.length()-3) != '.'))
+            while(!result.endsWith(".\\r\\n"))
             {
                 result += c;
-                c = (char)in.read();  
+                c = (char)in.read();
             }
         } catch(SocketTimeoutException ex) {
             Logger.getLogger(Connexion.class.getName()).log(Level.SEVERE, null, ex);
@@ -332,5 +332,4 @@ public class Interface extends javax.swing.JFrame {
             }
         }
     }
-    
 }
