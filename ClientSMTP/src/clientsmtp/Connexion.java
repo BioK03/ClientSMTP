@@ -251,7 +251,7 @@ public class Connexion extends javax.swing.JFrame {
     
     private void getMd5Salt(String msg)
     {
-        salt = msg.subSequence(msg.lastIndexOf("<")+1, msg.lastIndexOf(">")).toString();
+        salt = msg.subSequence(msg.lastIndexOf("<"), msg.lastIndexOf(">")+1).toString();
     }
     
     private String getPassword()
@@ -260,19 +260,13 @@ public class Connexion extends javax.swing.JFrame {
         String pass = new String(tf_pass.getPassword());
         if(cb_md5.isSelected())
         {
+            System.out.println(salt);
             pass = salt+pass;
-            String hashtext = "";
             try {
                 MessageDigest m = MessageDigest.getInstance("MD5");
-                m.reset();
-                m.update(pass.getBytes());
-                byte[] digest = m.digest();
-                BigInteger bigInt = new BigInteger(1,digest);
-                hashtext = bigInt.toString(16);
-                while(hashtext.length() < 32 ){
-                    hashtext = "0"+hashtext;
-                }
-                result = hashtext;
+                m.update(pass.getBytes(), 0, pass.length());
+                
+                result = new BigInteger(1, m.digest()).toString(16);
             } catch (NoSuchAlgorithmException ex) {
                 Logger.getLogger(Connexion.class.getName()).log(Level.SEVERE, null, ex);
                 JOptionPane.showMessageDialog(null,"Le cryptage a retourné une erreur");

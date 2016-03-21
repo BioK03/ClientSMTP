@@ -15,7 +15,6 @@ import java.nio.charset.Charset;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -36,7 +35,7 @@ public class Interface extends javax.swing.JFrame {
     private BufferedReader in;
     private PrintWriter out;
     private String utilisateur;
-    private HashMap<Integer, String> messages;
+    private HashMap<Integer, String[]> messages;
     
     private int lastMessageSelected = 0;
     
@@ -68,8 +67,8 @@ public class Interface extends javax.swing.JFrame {
                     if(messages.containsKey(Integer.parseInt(table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString())))
                     {
                         System.out.println("Message "+Integer.parseInt(table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString())+" a été chargé depuis le cache");
-                        table_mails.setValueAt(messages.get(Integer.parseInt(table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString())).split(" ")[1], lastMessageSelected-1, 2);
-                        String line = messages.get(Integer.parseInt(table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString()));
+                        table_mails.setValueAt(messages.get(Integer.parseInt(table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString()))[0].split(" ")[1], lastMessageSelected-1, 2);
+                        String line = messages.get(Integer.parseInt(table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString()))[1];
                         table_mails.setValueAt(
                                 line.substring(line.indexOf(" ")+1).substring(line.indexOf(" ")+1),
                                 lastMessageSelected-1, 1);
@@ -103,16 +102,16 @@ public class Interface extends javax.swing.JFrame {
         else if (evenement.contains("RETR"))
         {
             envoiMessage(evenement);
-            String result = "";
-            String mess1 = recoitMessage();
-            String mess2 = recoitMessage();
-            table_mails.setValueAt(mess1.substring(3), lastMessageSelected-1, 2);
-            table_mails.setValueAt(mess2, lastMessageSelected-1, 1);
-            creerFichierCache(mess1.split(" ")[0]+" "+mess1.split(" ")[1]+" "+mess2);
+            String mess1 = recoitMessageMail();
+            table_mails.setValueAt(mess1, lastMessageSelected-1, 2);
+            table_mails.setValueAt(mess1, lastMessageSelected-1, 1);
+            creerFichierCache(evenement
+                    +" "+mess1
+                    +" "+mess1);
         }
         else if (evenement.contains("DEL"))
         {
-            
+            envoiMessage(evenement);
         }
         else if(evenement.equals("QUIT"))
         {
@@ -251,6 +250,27 @@ public class Interface extends javax.swing.JFrame {
             Logger.getLogger(Connexion.class.getName()).log(Level.SEVERE, null, ex);
         }
         System.out.println("<- " + result);
+        
+        return result;
+    }
+    
+    private String recoitMessageMail()
+    {
+        String result = "";
+        try {
+            char c = (char) in.read();
+            while(result.length()<3 || ( result.charAt(result.length()-1) != '\n' && result.charAt(result.length()-2) != '\r' && result.charAt(result.length()-3) != '.'))
+            {
+                result += c;
+                c = (char)in.read();  
+            }
+        } catch(SocketTimeoutException ex) {
+            Logger.getLogger(Connexion.class.getName()).log(Level.SEVERE, null, ex);
+            
+        } catch (IOException ex) {
+            Logger.getLogger(Connexion.class.getName()).log(Level.SEVERE, null, ex);
+        } 
+        System.out.println("<- " + result);
         return result;
     }
     
@@ -301,7 +321,10 @@ public class Interface extends javax.swing.JFrame {
             try (BufferedReader reader = Files.newBufferedReader(FileSystems.getDefault().getPath(System.getProperty("user.dir")+"/"+utilisateur+".txt"), charset)) {
                 String line = null;
                 while ((line = reader.readLine()) != null) {
-                    messages.put(Integer.parseInt(line.split(" ")[0]), line);
+                    String[] result = new String[2];
+                    result[0] = line.split(" ")[1];
+                    result[1] = line.substring(line.indexOf(" ")).substring(line.substring(line.indexOf(" ")).indexOf(" "));
+                    messages.put(Integer.parseInt(line.split(" ")[0]), result);
                 }
                 System.out.println("Configuration chargée !");
             } catch (IOException x) {
