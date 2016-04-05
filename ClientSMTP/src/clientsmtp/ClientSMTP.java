@@ -17,5 +17,4 @@ public class ClientSMTP {
     public static void main(String[] args) {
         new Connexion().setVisible(true);
     }
-    
 }

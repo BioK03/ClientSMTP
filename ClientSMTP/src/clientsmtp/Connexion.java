@@ -11,7 +11,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.math.BigInteger;
-import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.charset.Charset;
 import java.nio.file.FileSystems;
@@ -19,10 +18,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.net.SocketFactory;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
 import javax.swing.JOptionPane;
 
 /**
@@ -30,7 +33,7 @@ import javax.swing.JOptionPane;
  * @author Bertrand
  */
 public class Connexion extends javax.swing.JFrame {
-    private Socket skt;
+    private SSLSocket skt;
     private BufferedReader in;
     private PrintWriter out;
     private int port;
@@ -214,7 +217,7 @@ public class Connexion extends javax.swing.JFrame {
             System.out.println(result);
             if(result.contains("OK"))
             {
-                new Interface(skt, in, out, Integer.parseInt(result.split("")[1]), tf_user.getText()).setVisible(true);
+                new Interface(skt, in, out, Integer.parseInt(result.split(" ")[1]), tf_user.getText()).setVisible(true);
             }
             else
             {
@@ -288,7 +291,23 @@ public class Connexion extends javax.swing.JFrame {
         }
         try {
             port = Integer.parseInt(tf_port.getText());
-            skt = new Socket(tf_ipserv.getText(), port);
+            SocketFactory context = SSLSocketFactory.getDefault();
+            
+            skt = (SSLSocket) context.createSocket(tf_ipserv.getText(), port);
+            String[] cipher = skt.getSupportedCipherSuites();
+            List<String> enabledCipher = new ArrayList();
+            for (String cipher1 : cipher) {
+                if (cipher1.contains("_anon_")) {
+                    enabledCipher.add(cipher1);
+                }
+            }
+            cipher = new String[enabledCipher.size()];
+            for(int i = 0 ; i< enabledCipher.size(); i++)
+            {
+                cipher[i] = enabledCipher.get(i);
+            }
+            skt.setEnabledCipherSuites(cipher);
+            
             skt.setSoTimeout(5000);
             in = new BufferedReader(new InputStreamReader(skt.getInputStream()));
             out = new PrintWriter(skt.getOutputStream(), true);

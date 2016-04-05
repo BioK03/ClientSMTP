@@ -9,7 +9,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.charset.Charset;
 import java.nio.file.FileSystems;
@@ -20,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.net.ssl.SSLSocket;
 import javax.swing.JOptionPane;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
@@ -31,7 +31,7 @@ import javax.swing.table.DefaultTableModel;
  */
 public class Interface extends javax.swing.JFrame {
     
-    private Socket skt;
+    private SSLSocket skt;
     private BufferedReader in;
     private PrintWriter out;
     private String utilisateur;
@@ -47,7 +47,7 @@ public class Interface extends javax.swing.JFrame {
      * @param nbMessages
      * @param utilisateur
      */
-    public Interface(Socket skt, BufferedReader in, PrintWriter out, int nbMessages, String utilisateur) {
+    public Interface(SSLSocket skt, BufferedReader in, PrintWriter out, int nbMessages, String utilisateur) {
         initComponents();
         this.messages = new HashMap();
         this.skt = skt;
@@ -67,14 +67,15 @@ public class Interface extends javax.swing.JFrame {
                     if(messages.containsKey(Integer.parseInt(table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString())))
                     {
                         System.out.println("Message "+Integer.parseInt(table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString())+" a été chargé depuis le cache");
-                        table_mails.setValueAt(messages.get(Integer.parseInt(table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString()))[0].split(" ")[1], lastMessageSelected-1, 2);
+                        table_mails.setValueAt(messages.get(Integer.parseInt(table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString()))[0], lastMessageSelected-1, 2);
                         String line = messages.get(Integer.parseInt(table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString()))[1];
                         table_mails.setValueAt(
-                                line.substring(line.indexOf(" ")+1).substring(line.indexOf(" ")+1),
+                                /*line.substring(line.indexOf(" ")+1).substring(line.indexOf(" ")+1)*/line,
                                 lastMessageSelected-1, 1);
                     }
                     else
                     {
+                        //System.out.println("CLICKED");
                         gestionEvenement("RETR "+table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString());
                     }
                     
@@ -86,7 +87,7 @@ public class Interface extends javax.swing.JFrame {
                         gestionEvenement("DELE "+table_mails.getValueAt(table_mails.getSelectedRow(), 0).toString());
                     }
                 }
-                System.out.println("message selected : "+lastMessageSelected);
+                //System.out.println("message selected : "+lastMessageSelected);
             }
         });
         loadFichierCache();
@@ -102,16 +103,16 @@ public class Interface extends javax.swing.JFrame {
         else if (evenement.contains("RETR"))
         {
             envoiMessage(evenement);
-            String mess1 = recoitMessageMail();
-            table_mails.setValueAt(mess1, lastMessageSelected-1, 2);
-            table_mails.setValueAt(mess1, lastMessageSelected-1, 1);
-            creerFichierCache(evenement.split(" ")[1]
-                    +" "+mess1.split(" ")[1]
-                    +" "+mess1.substring(mess1.indexOf("\\n")));
+            String mess1 = recoitMessageMail().replace("\r", "").replace("\n", "");
+            System.out.println(mess1);
+            table_mails.setValueAt(mess1.substring(mess1.indexOf("octets")+7), lastMessageSelected-1, 1);
+            table_mails.setValueAt(mess1.split(" ")[1]+" octets", lastMessageSelected-1, 2);
+            creerFichierCache(evenement.split(" ")[1]+" "+mess1.split(" ")[1]+" "+mess1.substring(mess1.indexOf("octets")+7));
         }
         else if (evenement.contains("DELE"))
         {
             envoiMessage(evenement);
+            recoitMessage();
         }
         else if(evenement.equals("QUIT"))
         {
@@ -238,10 +239,10 @@ public class Interface extends javax.swing.JFrame {
         String result = "";
         try {
             char c = (char) in.read();
-            while(c != '\n')
+            while(!result.endsWith("\r"))
             {
                 result += c;
-                c = (char)in.read();  
+                c = (char)in.read();    
             }
         } catch(SocketTimeoutException ex) {
             Logger.getLogger(Connexion.class.getName()).log(Level.SEVERE, null, ex);
@@ -251,6 +252,7 @@ public class Interface extends javax.swing.JFrame {
         }
         System.out.println("<- " + result);
         
+        
         return result;
     }
     
@@ -259,7 +261,7 @@ public class Interface extends javax.swing.JFrame {
         String result = "";
         try {
             char c = (char) in.read();
-            while(!result.endsWith(".\\r\\n"))
+            while(!result.endsWith(".\r"))
             {
                 result += c;
                 c = (char)in.read();
@@ -279,7 +281,7 @@ public class Interface extends javax.swing.JFrame {
         for(int i=1; i<=nbMessages; i++)
         {
             DefaultTableModel model = (DefaultTableModel) table_mails.getModel();
-            model.addRow(new Object[]{i, "Cliquez pour voir le message", "", "<html><font face='FontAwesome'></font></html>"});
+            model.addRow(new Object[]{i, "Cliquez pour voir le message", "", "X"});
         }
     }
     
@@ -322,8 +324,10 @@ public class Interface extends javax.swing.JFrame {
                 String line = null;
                 while ((line = reader.readLine()) != null) {
                     String[] result = new String[2];
-                    result[0] = line.split(" ")[1];
-                    result[1] = line.substring(line.indexOf(" ")).substring(line.substring(line.indexOf(" ")).indexOf(" "));
+                    result[0] = line.split(" ")[1]+" octets";
+                    System.out.println(line.substring(line.indexOf(" ")));
+                    result[1] = line.substring(line.indexOf(" ")+1).substring(line.substring(line.indexOf(" ")+1).indexOf(" ")+1);
+                    
                     messages.put(Integer.parseInt(line.split(" ")[0]), result);
                 }
                 System.out.println("Configuration chargée !");
